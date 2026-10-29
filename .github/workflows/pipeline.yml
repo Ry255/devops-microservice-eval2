@@ -1,0 +1,75 @@
+name: CI/CD Pipeline DevOps Eval2
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Build & Test (IE1, IE2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt pytest-cov
+
+      - name: Ejecutar pruebas unitarias con cobertura (IE2)
+        run: pytest --cov=. --cov-report=xml
+
+      - name: Construir imagen Docker (IE1)
+        run: docker build -t microservice-eval2:${{ github.sha }} .
+
+      - name: Subir reporte de cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  security-scan:
+    name: Security & Quality (IE3)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Descargar reporte de cobertura
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+
+      - name: SonarCloud Scan (IE3)
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  deploy:
+    name: Deploy to EC2 (IE4, IE5)
+    needs: security-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy vía SSH a EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/devops-microservice-eval2
+            git pull origin main
+            docker compose up -d --build
+            echo "Verificando salud del servicio..."
+            sleep 5
+            curl -f http://localhost:8000/health || exit 1
+            echo "✅ Despliegue exitoso del commit ${{ github.sha }}"
