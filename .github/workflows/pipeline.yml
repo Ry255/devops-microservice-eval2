@@ -48,7 +48,7 @@ jobs:
           name: coverage-report
 
       - name: SonarCloud Scan (IE3)
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -56,6 +56,8 @@ jobs:
   deploy:
     name: Deploy to EC2 (IE4, IE5)
     needs: security-scan
+    # Esta condición evita que se intente desplegar en los PRs de Dependabot
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy vía SSH a EC2
