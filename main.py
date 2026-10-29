@@ -4,7 +4,7 @@ app = FastAPI(title="Microservicio DevOps Eval2")
 
 @app.get("/")
 def read_root():
-    return {"message": "Hola desde el microservicio DevOps", "version": "1.0.0"}
+    return {"message": "Hola desde el microservicio DevOps", "version": "2.0.0 - DESPLEGADO POR EL PIPELINE"}
 
 @app.get("/health")
 def health_check():
